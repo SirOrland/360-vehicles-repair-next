@@ -1,41 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
-  const router = useRouter();
+function LoginForm() {
   const params = useSearchParams();
-  const [error, setError] = useState(params.get("timeout") ? "Your session has expired. Please login again." : "");
-  const [success] = useState(params.get("registered") ? "Registration successful! Please login with your credentials." : "");
+  const [error, setError] = useState(
+    params.get("timeout") ? "Your session has expired. Please login again." : ""
+  );
+  const [success] = useState(
+    params.get("registered") ? "Registration successful! Please login with your credentials." : ""
+  );
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: { preventDefault(): void; currentTarget: HTMLFormElement }) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const data = new FormData(e.currentTarget);
 
+    const data = new FormData(e.currentTarget);
     const res = await signIn("credentials", {
       email: data.get("email"),
       password: data.get("password"),
       redirect: false,
     });
 
-    setLoading(false);
     if (res?.error) {
-      setError("Invalid email or password");
-    } else {
-      const meRes = await fetch("/api/auth/session");
-      const session = await meRes.json();
+      setLoading(false);
+      setError("Invalid email or password. Please try again.");
+      return;
+    }
+
+    // Fetch the session to read the role, then hard-navigate so the
+    // middleware and server components see the fresh session cookie.
+    try {
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
       const role = session?.user?.role;
-      router.push(
+      window.location.href =
         role === "Admin" ? "/admin/dashboard"
         : role === "Mechanic" ? "/mechanic/dashboard"
-        : "/customer/dashboard"
-      );
+        : "/customer/dashboard";
+    } catch {
+      // Fallback: let the middleware decide after a full reload
+      window.location.href = "/";
     }
   }
 
@@ -76,7 +86,9 @@ export default function LoginPage() {
                   <Link href="/auth/reset-password" style={{ color: "var(--accent-color)" }}>Forgot Password?</Link>
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={loading}>
-                  {loading ? <><i className="fas fa-spinner fa-spin" /> Logging in...</> : <><i className="fas fa-sign-in-alt" /> Login</>}
+                  {loading
+                    ? <><i className="fas fa-spinner fa-spin" /> Signing in...</>
+                    : <><i className="fas fa-sign-in-alt" /> Login</>}
                 </button>
               </form>
 
@@ -98,5 +110,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
