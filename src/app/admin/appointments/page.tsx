@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatDate, formatTime, getStatusBadgeClass, formatStatus, formatCurrency } from "@/lib/utils";
-import Link from "next/link";
 
 type Appointment = {
   id: number;
@@ -30,7 +29,10 @@ export default function AdminAppointmentsPage() {
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [updateData, setUpdateData] = useState({ status: "", mechanicId: "", notes: "", finalCost: "" });
+  const [updateData, setUpdateData] = useState({
+    status: "", mechanicId: "", notes: "", finalCost: "",
+    appointmentDate: "", appointmentTime: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,12 +50,27 @@ export default function AdminAppointmentsPage() {
 
   const openModal = (a: Appointment) => {
     setSelected(a);
-    setUpdateData({ status: a.status, mechanicId: String(a.mechanic ? "" : ""), notes: a.notes || "", finalCost: a.finalCost ? String(a.finalCost) : "" });
+    // Format date for date input (YYYY-MM-DD)
+    const d = new Date(a.appointmentDate);
+    const dateStr = d.toISOString().split("T")[0];
+    setUpdateData({
+      status: a.status,
+      mechanicId: a.mechanic ? "" : "",
+      notes: a.notes || "",
+      finalCost: a.finalCost ? String(a.finalCost) : "",
+      appointmentDate: dateStr,
+      appointmentTime: a.appointmentTime,
+    });
   };
 
   const handleUpdate = async () => {
     if (!selected) return;
     setSaving(true);
+
+    const originalDate = new Date(selected.appointmentDate).toISOString().split("T")[0];
+    const dateChanged = updateData.appointmentDate !== originalDate;
+    const timeChanged = updateData.appointmentTime !== selected.appointmentTime;
+
     await fetch(`/api/appointments/${selected.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -62,6 +79,8 @@ export default function AdminAppointmentsPage() {
         mechanicId: updateData.mechanicId || null,
         notes: updateData.notes,
         finalCost: updateData.finalCost ? parseFloat(updateData.finalCost) : null,
+        ...(dateChanged && { appointmentDate: updateData.appointmentDate }),
+        ...(timeChanged && { appointmentTime: updateData.appointmentTime }),
       }),
     });
     setSaving(false);
@@ -70,6 +89,11 @@ export default function AdminAppointmentsPage() {
   };
 
   const filtered = filter === "All" ? appointments : appointments.filter(a => a.status === filter);
+
+  const timeSlots = Array.from({ length: 10 }, (_, i) => {
+    const h = 8 + i;
+    return `${String(h).padStart(2, "0")}:00`;
+  });
 
   return (
     <div className="container" style={{ paddingTop: "2rem", paddingBottom: "2rem" }}>
@@ -120,26 +144,26 @@ export default function AdminAppointmentsPage() {
         </div>
       )}
 
-      {/* Modal */}
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div className="card" style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflowY: "auto" }}>
+          <div className="card" style={{ width: "100%", maxWidth: 620, maxHeight: "92vh", overflowY: "auto" }}>
             <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 className="card-title">Manage Appointment #{selected.id}</h3>
               <button onClick={() => setSelected(null)} className="btn btn-sm btn-danger"><i className="fas fa-times" /></button>
             </div>
             <div className="card-body">
+              {/* Info summary */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "1.5rem", padding: "1rem", background: "var(--light-bg)", borderRadius: 5 }}>
                 <div><strong>Customer:</strong> {selected.customer.name}</div>
+                <div><strong>Contact:</strong> {selected.customer.contact || "—"}</div>
                 <div><strong>Service:</strong> {selected.service.serviceName}</div>
-                <div><strong>Vehicle:</strong> {selected.vehicle.brand} {selected.vehicle.model}</div>
-                <div><strong>Date:</strong> {formatDate(selected.appointmentDate)} {formatTime(selected.appointmentTime)}</div>
+                <div><strong>Vehicle:</strong> {selected.vehicle.brand} {selected.vehicle.model} ({selected.vehicle.plateNo})</div>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Status</label>
-                <select className="form-control" value={updateData.status} onChange={e => setUpdateData({...updateData, status: e.target.value})}>
-                  {["Pending","Approved","InProgress","Completed","Cancelled"].map(s => (
+                <select className="form-control" value={updateData.status} onChange={e => setUpdateData({ ...updateData, status: e.target.value })}>
+                  {["Pending", "Approved", "InProgress", "Completed", "Cancelled"].map(s => (
                     <option key={s} value={s}>{s === "InProgress" ? "In Progress" : s}</option>
                   ))}
                 </select>
@@ -147,20 +171,48 @@ export default function AdminAppointmentsPage() {
 
               <div className="form-group">
                 <label className="form-label">Assign Mechanic</label>
-                <select className="form-control" value={updateData.mechanicId} onChange={e => setUpdateData({...updateData, mechanicId: e.target.value})}>
+                <select className="form-control" value={updateData.mechanicId} onChange={e => setUpdateData({ ...updateData, mechanicId: e.target.value })}>
                   <option value="">Unassigned</option>
                   {mechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
 
+              {/* Reschedule */}
+              <div style={{ padding: "1rem", border: "1px solid var(--light-bg)", borderRadius: 5, marginBottom: "1rem" }}>
+                <p style={{ margin: "0 0 0.75rem", fontWeight: 600, fontSize: "0.875rem", color: "var(--light-text)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <i className="fas fa-calendar-alt" /> Reschedule
+                </p>
+                <div className="row">
+                  <div className="col-6">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Date</label>
+                      <input type="date" className="form-control" value={updateData.appointmentDate}
+                        onChange={e => setUpdateData({ ...updateData, appointmentDate: e.target.value })}
+                        min={new Date().toISOString().split("T")[0]} />
+                    </div>
+                  </div>
+                  <div className="col-6">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Time</label>
+                      <select className="form-control" value={updateData.appointmentTime} onChange={e => setUpdateData({ ...updateData, appointmentTime: e.target.value })}>
+                        {timeSlots.map(t => <option key={t} value={t}>{formatTime(t)}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Final Cost (AED)</label>
-                <input type="number" step="0.01" className="form-control" value={updateData.finalCost} onChange={e => setUpdateData({...updateData, finalCost: e.target.value})} placeholder="e.g. 149.99" />
+                <input type="number" step="0.01" className="form-control" value={updateData.finalCost}
+                  onChange={e => setUpdateData({ ...updateData, finalCost: e.target.value })} placeholder="e.g. 149.99" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Internal Notes</label>
-                <textarea className="form-control" value={updateData.notes} onChange={e => setUpdateData({...updateData, notes: e.target.value})} rows={3} placeholder="Notes visible to mechanics..." />
+                <textarea className="form-control" value={updateData.notes}
+                  onChange={e => setUpdateData({ ...updateData, notes: e.target.value })} rows={3}
+                  placeholder="Notes visible to mechanics..." />
               </div>
 
               {selected.customerNotes && (

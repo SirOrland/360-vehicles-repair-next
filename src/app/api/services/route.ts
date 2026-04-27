@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  const session = await auth();
+  const isAdmin = session?.user?.role === "Admin";
   const services = await prisma.service.findMany({
-    where: { status: "Active" },
+    where: isAdmin ? {} : { status: "Active" },
     orderBy: { serviceName: "asc" },
   });
   return NextResponse.json(services);
