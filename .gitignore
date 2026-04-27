@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build
+.next/
+out/
+
+# Production
+build/
+
+# Misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files — DO NOT COMMIT
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# SQLite local dev database
+prisma/dev.db
+prisma/dev.db-journal
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
