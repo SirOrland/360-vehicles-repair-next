@@ -37,47 +37,60 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { vehicleId, serviceId, appointmentDate, appointmentTime, customerNotes } = body;
+  const { vehicleId, serviceIds, appointmentDate, appointmentTime, customerNotes } = body;
 
-  if (!vehicleId || !serviceId || !appointmentDate || !appointmentTime) {
+  if (!vehicleId || !serviceIds?.length || !appointmentDate || !appointmentTime) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const service = await prisma.service.findUnique({ where: { id: parseInt(serviceId) } });
-  if (!service) return NextResponse.json({ error: "Service not found" }, { status: 404 });
+  const allServiceIds: number[] = serviceIds.map(Number);
 
-  const [vehicle, appointment] = await Promise.all([
+  const [services, vehicle] = await Promise.all([
+    prisma.service.findMany({ where: { id: { in: allServiceIds } } }),
     prisma.vehicle.findUnique({ where: { id: parseInt(vehicleId) } }),
-    prisma.appointment.create({
-      data: {
-        userId: parseInt(session.user.id),
-        vehicleId: parseInt(vehicleId),
-        serviceId: parseInt(serviceId),
-        appointmentDate: new Date(appointmentDate),
-        appointmentTime,
-        customerNotes,
-        estimatedCost: service.basePrice,
-        status: "Pending",
-      },
-    }),
   ]);
+
+  if (services.length === 0) return NextResponse.json({ error: "No valid services found" }, { status: 404 });
+
+  const totalEstimatedCost = services.reduce((sum, s) => sum + (s.basePrice ? Number(s.basePrice) : 0), 0);
+  const primaryServiceId = allServiceIds[0];
+
+  const appointment = await prisma.appointment.create({
+    data: {
+      userId: parseInt(session.user.id),
+      vehicleId: parseInt(vehicleId),
+      serviceId: primaryServiceId,
+      appointmentDate: new Date(appointmentDate),
+      appointmentTime,
+      customerNotes,
+      estimatedCost: totalEstimatedCost,
+      status: "Pending",
+    },
+  });
+
+  // Store all selected services in the junction table
+  await prisma.appointmentService.createMany({
+    data: allServiceIds.map((sid) => ({ appointmentId: appointment.id, serviceId: sid })),
+    skipDuplicates: true,
+  });
 
   const admins = await prisma.user.findMany({ where: { role: "Admin" }, select: { id: true } });
   const vehicleLabel = vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : "vehicle";
   const dateLabel = new Date(appointmentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const serviceNames = services.map((s) => s.serviceName).join(", ");
 
   await prisma.notification.createMany({
     data: [
       {
         userId: parseInt(session.user.id),
         title: "Appointment Booked",
-        message: "Your appointment has been submitted and is pending approval.",
+        message: `Your appointment for ${serviceNames} has been submitted and is pending approval.`,
         type: "Success",
       },
       ...admins.map((admin) => ({
         userId: admin.id,
         title: "New Appointment Request",
-        message: `${session.user.name} booked ${service.serviceName} for their ${vehicleLabel} on ${dateLabel}.`,
+        message: `${session.user.name} booked ${serviceNames} for their ${vehicleLabel} on ${dateLabel}.`,
         type: "Info",
       })),
     ],

@@ -22,11 +22,13 @@ export default function BookAppointmentPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ vehicleId: "", serviceId: "", appointmentDate: "", appointmentTime: "", customerNotes: "" });
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [form, setForm] = useState({ vehicleId: "", appointmentDate: "", appointmentTime: "", customerNotes: "" });
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([""]);
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
   const [fullyBooked, setFullyBooked] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     Promise.all([fetch("/api/vehicles"), fetch("/api/services")])
@@ -35,43 +37,47 @@ export default function BookAppointmentPage() {
   }, []);
 
   useEffect(() => {
-    if (form.serviceId) {
-      setSelectedService(services.find(s => s.id === parseInt(form.serviceId)) || null);
-    } else {
-      setSelectedService(null);
-    }
-  }, [form.serviceId, services]);
-
-  useEffect(() => {
-    if (!form.appointmentDate) {
-      setBookedTimes([]);
-      setFullyBooked(false);
-      return;
-    }
+    if (!form.appointmentDate) { setBookedTimes([]); setFullyBooked(false); return; }
     setCheckingAvailability(true);
     fetch(`/api/appointments/availability?date=${form.appointmentDate}`)
       .then((r) => r.json())
-      .then((data) => {
-        setBookedTimes(data.bookedTimes || []);
-        setFullyBooked(data.fullyBooked || false);
-      })
+      .then((data) => { setBookedTimes(data.bookedTimes || []); setFullyBooked(data.fullyBooked || false); })
       .catch(() => { setBookedTimes([]); setFullyBooked(false); })
       .finally(() => setCheckingAvailability(false));
   }, [form.appointmentDate]);
 
-  const today = new Date().toISOString().split("T")[0];
+  const updateServiceRow = (idx: number, value: string) => {
+    const updated = [...selectedServiceIds];
+    updated[idx] = value;
+    setSelectedServiceIds(updated);
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
+  const addServiceRow = () => setSelectedServiceIds([...selectedServiceIds, ""]);
+
+  const removeServiceRow = (idx: number) =>
+    setSelectedServiceIds(selectedServiceIds.filter((_, i) => i !== idx));
+
+  const takenIds = (excludeIdx: number) =>
+    selectedServiceIds.filter((id, i) => i !== excludeIdx && id !== "").map(Number);
+
+  const chosenServices = selectedServiceIds
+    .filter(Boolean)
+    .map((id) => services.find((s) => s.id === parseInt(id)))
+    .filter(Boolean) as Service[];
+
+  const totalCost = chosenServices.reduce((sum, s) => sum + (s.basePrice ? Number(s.basePrice) : 0), 0);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    if (new Date(form.appointmentDate) < new Date(today)) {
-      setError("Please select a future date"); return;
-    }
+    const serviceIds = selectedServiceIds.filter(Boolean).map(Number);
+    if (serviceIds.length === 0) { setError("Please select at least one service."); return; }
+    if (new Date(form.appointmentDate) < new Date(today)) { setError("Please select a future date."); return; }
     setSubmitting(true);
     const res = await fetch("/api/appointments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, serviceIds }),
     });
     setSubmitting(false);
     if (!res.ok) { const j = await res.json(); setError(j.error || "Failed to book"); return; }
@@ -108,33 +114,77 @@ export default function BookAppointmentPage() {
                   <div className="card-header"><h3 className="card-title">Appointment Details</h3></div>
                   <div className="card-body">
                     <form onSubmit={handleSubmit}>
+
+                      {/* Vehicle */}
                       <div className="form-group">
                         <label className="form-label"><i className="fas fa-car" /> Select Vehicle *</label>
-                        <select className="form-control" required value={form.vehicleId} onChange={e => setForm({...form, vehicleId: e.target.value})}>
+                        <select className="form-control" required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })}>
                           <option value="">Choose a vehicle...</option>
                           {vehicles.map(v => <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.plateNo})</option>)}
                         </select>
                       </div>
 
+                      {/* Services — multiple rows */}
                       <div className="form-group">
-                        <label className="form-label"><i className="fas fa-wrench" /> Select Service *</label>
-                        <select className="form-control" required value={form.serviceId} onChange={e => setForm({...form, serviceId: e.target.value})}>
-                          <option value="">Choose a service...</option>
-                          {services.map(s => <option key={s.id} value={s.id}>{s.serviceName} — AED {s.basePrice}</option>)}
-                        </select>
+                        <label className="form-label"><i className="fas fa-wrench" /> Services *</label>
+
+                        {selectedServiceIds.map((sid, idx) => {
+                          const taken = takenIds(idx);
+                          const available = services.filter(s => !taken.includes(s.id));
+                          const chosen = sid ? services.find(s => s.id === parseInt(sid)) : null;
+                          return (
+                            <div key={idx} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                              <div style={{ flex: 1 }}>
+                                <select
+                                  className="form-control"
+                                  required={idx === 0}
+                                  value={sid}
+                                  onChange={e => updateServiceRow(idx, e.target.value)}
+                                >
+                                  <option value="">Choose a service...</option>
+                                  {available.map(s => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.serviceName} — AED {s.basePrice}
+                                    </option>
+                                  ))}
+                                </select>
+                                {chosen && (
+                                  <small style={{ color: "var(--light-text)", display: "block", marginTop: "0.25rem" }}>
+                                    {chosen.estimatedDuration && <><i className="fas fa-clock" /> {chosen.estimatedDuration} min &nbsp;</>}
+                                    {chosen.description && <span>{chosen.description}</span>}
+                                  </small>
+                                )}
+                              </div>
+                              {selectedServiceIds.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ marginTop: "0.25rem" }}
+                                  onClick={() => removeServiceRow(idx)}
+                                  title="Remove service"
+                                >
+                                  <i className="fas fa-times" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {selectedServiceIds.length < services.length && (
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={addServiceRow} style={{ marginTop: "0.25rem" }}>
+                            <i className="fas fa-plus" /> Add Another Service
+                          </button>
+                        )}
+
+                        {chosenServices.length > 1 && (
+                          <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "var(--light-bg)", borderRadius: 5 }}>
+                            <strong>Estimated Total: AED {totalCost.toFixed(2)}</strong>
+                            <span style={{ color: "var(--light-text)", fontSize: "0.85rem", marginLeft: "0.5rem" }}>({chosenServices.length} services)</span>
+                          </div>
+                        )}
                       </div>
 
-                      {selectedService && (
-                        <div style={{ padding: "1rem", background: "var(--light-bg)", borderRadius: 5, marginBottom: "1rem" }}>
-                          <p style={{ margin: 0 }}><strong>Service Details:</strong></p>
-                          <p style={{ margin: "0.5rem 0" }}>{selectedService.description}</p>
-                          <p style={{ margin: 0 }}>
-                            <strong>Est. Duration:</strong> {selectedService.estimatedDuration} min &nbsp;|&nbsp;
-                            <strong>Base Price:</strong> AED {selectedService.basePrice}
-                          </p>
-                        </div>
-                      )}
-
+                      {/* Date & Time */}
                       <div className="row">
                         <div className="col-6">
                           <div className="form-group">
@@ -179,9 +229,10 @@ export default function BookAppointmentPage() {
                         </div>
                       )}
 
+                      {/* Notes */}
                       <div className="form-group">
                         <label className="form-label"><i className="fas fa-comment" /> Additional Notes (Optional)</label>
-                        <textarea className="form-control" rows={4} placeholder="Any specific concerns or requests..." value={form.customerNotes} onChange={e => setForm({...form, customerNotes: e.target.value})} />
+                        <textarea className="form-control" rows={4} placeholder="Any specific concerns or requests..." value={form.customerNotes} onChange={e => setForm({ ...form, customerNotes: e.target.value })} />
                       </div>
 
                       <div style={{ display: "flex", gap: "1rem" }}>
