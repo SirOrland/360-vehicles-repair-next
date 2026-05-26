@@ -46,26 +46,41 @@ export async function POST(req: NextRequest) {
   const service = await prisma.service.findUnique({ where: { id: parseInt(serviceId) } });
   if (!service) return NextResponse.json({ error: "Service not found" }, { status: 404 });
 
-  const appointment = await prisma.appointment.create({
-    data: {
-      userId: parseInt(session.user.id),
-      vehicleId: parseInt(vehicleId),
-      serviceId: parseInt(serviceId),
-      appointmentDate: new Date(appointmentDate),
-      appointmentTime,
-      customerNotes,
-      estimatedCost: service.basePrice,
-      status: "Pending",
-    },
-  });
+  const [vehicle, appointment] = await Promise.all([
+    prisma.vehicle.findUnique({ where: { id: parseInt(vehicleId) } }),
+    prisma.appointment.create({
+      data: {
+        userId: parseInt(session.user.id),
+        vehicleId: parseInt(vehicleId),
+        serviceId: parseInt(serviceId),
+        appointmentDate: new Date(appointmentDate),
+        appointmentTime,
+        customerNotes,
+        estimatedCost: service.basePrice,
+        status: "Pending",
+      },
+    }),
+  ]);
 
-  await prisma.notification.create({
-    data: {
-      userId: parseInt(session.user.id),
-      title: "Appointment Booked",
-      message: "Your appointment has been submitted and is pending approval.",
-      type: "Success",
-    },
+  const admins = await prisma.user.findMany({ where: { role: "Admin" }, select: { id: true } });
+  const vehicleLabel = vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : "vehicle";
+  const dateLabel = new Date(appointmentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: parseInt(session.user.id),
+        title: "Appointment Booked",
+        message: "Your appointment has been submitted and is pending approval.",
+        type: "Success",
+      },
+      ...admins.map((admin) => ({
+        userId: admin.id,
+        title: "New Appointment Request",
+        message: `${session.user.name} booked ${service.serviceName} for their ${vehicleLabel} on ${dateLabel}.`,
+        type: "Info",
+      })),
+    ],
   });
 
   await prisma.activityLog.create({

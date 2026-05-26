@@ -15,6 +15,7 @@ export default function Header({ session }: Props) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef<HTMLLIElement>(null);
 
   const role = session?.user?.role;
@@ -29,6 +30,18 @@ export default function Header({ session }: Props) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    const fetchUnread = () =>
+      fetch("/api/notifications?count=true")
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data) setUnreadCount(data.count); })
+        .catch(() => {});
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [session]);
 
   const isActive = (path: string) => pathname === path ? "active" : "";
 
@@ -100,7 +113,12 @@ export default function Header({ session }: Props) {
                       className="user-dropdown-toggle"
                       onClick={(e) => { e.preventDefault(); setDropdownOpen(!dropdownOpen); }}
                     >
-                      <i className="fas fa-user-circle" />
+                      <span style={{ position: "relative", display: "inline-block" }}>
+                        <i className="fas fa-user-circle" />
+                        {unreadCount > 0 && (
+                          <span style={{ position: "absolute", top: -4, right: -4, width: 8, height: 8, borderRadius: "50%", background: "#e53e3e", display: "block" }} />
+                        )}
+                      </span>
                       <span>{userName}</span>
                       <i className="fas fa-chevron-down" />
                     </a>
@@ -111,8 +129,13 @@ export default function Header({ session }: Props) {
                         </Link>
                       </li>
                       <li>
-                        <Link href={`/${role?.toLowerCase()}/notifications`} onClick={() => setDropdownOpen(false)}>
+                        <Link href={`/${role?.toLowerCase()}/notifications`} onClick={() => { setDropdownOpen(false); setUnreadCount(0); }}>
                           <i className="fas fa-bell" /> Notifications
+                          {unreadCount > 0 && (
+                            <span style={{ background: "#e53e3e", color: "#fff", borderRadius: "999px", fontSize: "11px", fontWeight: 700, padding: "1px 6px", marginLeft: "6px", lineHeight: 1.4 }}>
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
                         </Link>
                       </li>
                       <li>

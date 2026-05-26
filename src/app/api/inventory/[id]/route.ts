@@ -13,6 +13,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     where: { id: parseInt(id) },
     data: body,
   });
+
+  // Notify admins if stock dropped to or below reorder level
+  if (part.status === "Active" && part.quantityInStock <= part.reorderLevel) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: {
+        title: "Low Stock Alert",
+        message: { contains: part.partName },
+        createdAt: { gte: since },
+      },
+    });
+
+    if (!alreadyNotified) {
+      const admins = await prisma.user.findMany({ where: { role: "Admin" }, select: { id: true } });
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.id,
+          title: "Low Stock Alert",
+          message: `${part.partName} is running low — ${part.quantityInStock} units left (reorder level: ${part.reorderLevel}).`,
+          type: "Warning",
+        })),
+      });
+    }
+  }
+
   return NextResponse.json(part);
 }
 

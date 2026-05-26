@@ -26,15 +26,21 @@ const typeClass: Record<string, string> = {
   Error: "alert-danger",
 };
 
-export default function NotificationsPage({ role }: { role: string }) {
+export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/notifications");
-    setNotifications(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch("/api/notifications");
+      const data = await res.json();
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
