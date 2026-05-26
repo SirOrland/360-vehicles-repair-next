@@ -26,7 +26,8 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-"@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "prisma": "^5.22.0",
