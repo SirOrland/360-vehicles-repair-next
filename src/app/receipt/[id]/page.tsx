@@ -196,9 +196,10 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Print / Download buttons */}
-          <ReceiptActions receiptNo={receiptNo} />
         </div>
+
+        {/* Print / Download buttons — outside receipt-content so they don't appear in the PDF */}
+        <ReceiptActions receiptNo={receiptNo} />
       </div>
     </>
   );
