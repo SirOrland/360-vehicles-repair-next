@@ -23,37 +23,15 @@ export default function ReceiptActions({ receiptNo }: { receiptNo: string }) {
         logging: false,
       });
 
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      // Use content height as the page height so the receipt always fits on one page
       const margin = 10;
+      const pageWidth = 210; // A4 width in mm
       const imgWidth = pageWidth - margin * 2;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageHeight = imgHeight + margin * 2;
 
-      // Handle multi-page receipts
-      let yOffset = margin;
-      let remainingHeight = imgHeight;
-      let sourceY = 0;
-
-      while (remainingHeight > 0) {
-        const sliceHeight = Math.min(remainingHeight, pageHeight - margin * 2);
-        const sliceCanvas = document.createElement("canvas");
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = (sliceHeight / imgWidth) * canvas.width;
-        const ctx = sliceCanvas.getContext("2d")!;
-        ctx.drawImage(canvas, 0, sourceY, canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
-
-        pdf.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, yOffset, imgWidth, sliceHeight);
-
-        sourceY += sliceCanvas.height;
-        remainingHeight -= sliceHeight;
-
-        if (remainingHeight > 0) {
-          pdf.addPage();
-          yOffset = margin;
-        }
-      }
-
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageWidth, pageHeight] });
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, margin, imgWidth, imgHeight);
       pdf.save(`${receiptNo}.pdf`);
     } catch (err) {
       console.error("PDF generation failed:", err);
