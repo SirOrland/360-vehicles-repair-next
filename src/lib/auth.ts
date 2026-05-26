@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { authConfig } from "./auth.config";
 
@@ -10,54 +9,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        verifiedToken: { label: "Verified Token", type: "text" },
       },
       authorize: async (credentials) => {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.verifiedToken) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const user = await (prisma.user as any).findFirst({
+          where: {
+            email: credentials.email as string,
+            otpVerifiedToken: credentials.verifiedToken as string,
+            otpVerifiedExpiry: { gt: new Date() },
+            status: "Active",
+          },
         });
 
-        if (!user || user.status !== "Active") return null;
+        if (!user) return null;
 
-        // Account lockout check
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const u = user as any;
-        if (u.lockedUntil && u.lockedUntil > new Date()) {
-          return null;
-        }
-
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!valid) {
-          const newAttempts = (u.failedAttempts ?? 0) + 1;
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              failedAttempts: newAttempts,
-              ...(newAttempts >= 5 && {
-                lockedUntil: new Date(Date.now() + 15 * 60 * 1000),
-              }),
-            },
-          });
-          return null;
-        }
-
-        // Successful login — reset lockout counters
+        // Consume the one-time token so it can't be reused
         await prisma.user.update({
           where: { id: user.id },
-          data: { failedAttempts: 0, lockedUntil: null },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data: { otpVerifiedToken: null, otpVerifiedExpiry: null } as any,
         });
 
         await prisma.activityLog.create({
           data: {
             userId: user.id,
             action: "Login",
-            description: "User logged in successfully",
+            description: "User logged in with email OTP",
           },
         });
 

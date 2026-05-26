@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -22,44 +21,24 @@ function LoginForm() {
 
     const data = new FormData(e.currentTarget);
     const email = data.get("email") as string;
+    const password = data.get("password") as string;
 
-    const res = await signIn("credentials", {
-      email,
-      password: data.get("password"),
-      redirect: false,
+    const res = await fetch("/api/auth/request-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
     });
 
-    if (res?.error) {
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "Login failed. Please try again.");
       setLoading(false);
-      // Check lockout status to give a specific message
-      try {
-        const statusRes = await fetch(`/api/auth/login-status?email=${encodeURIComponent(email)}`);
-        const status = await statusRes.json();
-        if (status.locked) {
-          setError(`Account locked due to too many failed attempts. Try again in ${status.minutesLeft} minute${status.minutesLeft === 1 ? "" : "s"}.`);
-        } else if (status.attemptsLeft <= 2) {
-          setError(`Invalid email or password. ${status.attemptsLeft} attempt${status.attemptsLeft === 1 ? "" : "s"} remaining before account lockout.`);
-        } else {
-          setError("Invalid email or password. Please try again.");
-        }
-      } catch {
-        setError("Invalid email or password. Please try again.");
-      }
       return;
     }
 
-    // Fetch session to read role, then hard-navigate
-    try {
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
-      const role = session?.user?.role;
-      window.location.href =
-        role === "Admin" ? "/admin/dashboard"
-        : role === "Mechanic" ? "/mechanic/dashboard"
-        : "/customer/dashboard";
-    } catch {
-      window.location.href = "/";
-    }
+    // Store email for the OTP page (sessionStorage cleared on tab close)
+    sessionStorage.setItem("pendingOtpEmail", email);
+    window.location.href = "/auth/verify-otp";
   }
 
   return (
@@ -100,8 +79,8 @@ function LoginForm() {
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={loading}>
                   {loading
-                    ? <><i className="fas fa-spinner fa-spin" /> Signing in...</>
-                    : <><i className="fas fa-sign-in-alt" /> Login</>}
+                    ? <><i className="fas fa-spinner fa-spin" /> Sending code...</>
+                    : <><i className="fas fa-sign-in-alt" /> Continue</>}
                 </button>
               </form>
 
