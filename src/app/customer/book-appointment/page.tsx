@@ -15,6 +15,20 @@ const TIMES = [
   { value: "16:00:00", label: "4:00 PM" }, { value: "17:00:00", label: "5:00 PM" },
 ];
 
+function getDayOfWeek(dateStr: string): number {
+  // Parse as local date to avoid UTC offset shifting the day
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay(); // 0=Sun, 6=Sat
+}
+
+function getValidTimes(dateStr: string) {
+  if (!dateStr) return TIMES;
+  const dow = getDayOfWeek(dateStr);
+  if (dow === 0) return []; // Sunday — closed
+  if (dow === 6) return TIMES.filter(t => t.value >= "09:00:00" && t.value <= "15:00:00"); // Sat 9AM–3PM (last slot)
+  return TIMES; // Mon–Fri 8AM–5PM
+}
+
 export default function BookAppointmentPage() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -195,7 +209,15 @@ export default function BookAppointmentPage() {
                               required
                               min={today}
                               value={form.appointmentDate}
-                              onChange={e => setForm({ ...form, appointmentDate: e.target.value, appointmentTime: "" })}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val && getDayOfWeek(val) === 0) {
+                                  setError("We are closed on Sundays. Please select another day.");
+                                  return;
+                                }
+                                setError("");
+                                setForm({ ...form, appointmentDate: val, appointmentTime: "" });
+                              }}
                             />
                           </div>
                         </div>
@@ -212,7 +234,7 @@ export default function BookAppointmentPage() {
                               <option value="">
                                 {checkingAvailability ? "Checking availability…" : "Select time…"}
                               </option>
-                              {TIMES.map(t => (
+                              {getValidTimes(form.appointmentDate).map(t => (
                                 <option key={t.value} value={t.value} disabled={bookedTimes.includes(t.value)}>
                                   {t.label}{bookedTimes.includes(t.value) ? " — Booked" : ""}
                                 </option>
