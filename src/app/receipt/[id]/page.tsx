@@ -40,9 +40,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const issuedDate = formatDate(new Date());
 
   // Collect all services (primary + additional)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const additionalServices: any[] = (appt as any).additionalServices ?? [];
   const allServices = [
     appt.service,
-    ...appt.additionalServices.filter(as => as.serviceId !== appt.serviceId).map(as => as.service),
+    ...additionalServices.filter(as => as.serviceId !== appt.serviceId).map(as => as.service),
   ];
 
   return (
@@ -71,7 +73,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           </a>
         </div>
 
-        <div className="receipt-wrapper">
+        <div className="receipt-wrapper" id="receipt-content">
           {/* Shop Header */}
           <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
             <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1a1a2e", letterSpacing: 1 }}>
@@ -195,7 +197,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           </div>
 
           {/* Print / Download buttons */}
-          <ReceiptActions />
+          <ReceiptActions receiptNo={receiptNo} />
         </div>
       </div>
     </>
