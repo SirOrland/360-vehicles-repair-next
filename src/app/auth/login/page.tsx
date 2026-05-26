@@ -21,20 +21,34 @@ function LoginForm() {
     setLoading(true);
 
     const data = new FormData(e.currentTarget);
+    const email = data.get("email") as string;
+
     const res = await signIn("credentials", {
-      email: data.get("email"),
+      email,
       password: data.get("password"),
       redirect: false,
     });
 
     if (res?.error) {
       setLoading(false);
-      setError("Invalid email or password. Please try again.");
+      // Check lockout status to give a specific message
+      try {
+        const statusRes = await fetch(`/api/auth/login-status?email=${encodeURIComponent(email)}`);
+        const status = await statusRes.json();
+        if (status.locked) {
+          setError(`Account locked due to too many failed attempts. Try again in ${status.minutesLeft} minute${status.minutesLeft === 1 ? "" : "s"}.`);
+        } else if (status.attemptsLeft <= 2) {
+          setError(`Invalid email or password. ${status.attemptsLeft} attempt${status.attemptsLeft === 1 ? "" : "s"} remaining before account lockout.`);
+        } else {
+          setError("Invalid email or password. Please try again.");
+        }
+      } catch {
+        setError("Invalid email or password. Please try again.");
+      }
       return;
     }
 
-    // Fetch the session to read the role, then hard-navigate so the
-    // middleware and server components see the fresh session cookie.
+    // Fetch session to read role, then hard-navigate
     try {
       const sessionRes = await fetch("/api/auth/session");
       const session = await sessionRes.json();
@@ -44,7 +58,6 @@ function LoginForm() {
         : role === "Mechanic" ? "/mechanic/dashboard"
         : "/customer/dashboard";
     } catch {
-      // Fallback: let the middleware decide after a full reload
       window.location.href = "/";
     }
   }

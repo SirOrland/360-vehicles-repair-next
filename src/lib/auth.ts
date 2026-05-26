@@ -16,16 +16,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string, status: "Active" },
+          where: { email: credentials.email as string },
         });
 
-        if (!user) return null;
+        if (!user || user.status !== "Active") return null;
+
+        // Account lockout check
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const u = user as any;
+        if (u.lockedUntil && u.lockedUntil > new Date()) {
+          return null;
+        }
 
         const valid = await bcrypt.compare(
           credentials.password as string,
           user.password
         );
-        if (!valid) return null;
+
+        if (!valid) {
+          const newAttempts = (u.failedAttempts ?? 0) + 1;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedAttempts: newAttempts,
+              ...(newAttempts >= 5 && {
+                lockedUntil: new Date(Date.now() + 15 * 60 * 1000),
+              }),
+            },
+          });
+          return null;
+        }
+
+        // Successful login — reset lockout counters
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { failedAttempts: 0, lockedUntil: null },
+        });
 
         await prisma.activityLog.create({
           data: {
