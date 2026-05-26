@@ -24,6 +24,9 @@ export default function BookAppointmentPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ vehicleId: "", serviceId: "", appointmentDate: "", appointmentTime: "", customerNotes: "" });
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [fullyBooked, setFullyBooked] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
 
   useEffect(() => {
     Promise.all([fetch("/api/vehicles"), fetch("/api/services")])
@@ -38,6 +41,23 @@ export default function BookAppointmentPage() {
       setSelectedService(null);
     }
   }, [form.serviceId, services]);
+
+  useEffect(() => {
+    if (!form.appointmentDate) {
+      setBookedTimes([]);
+      setFullyBooked(false);
+      return;
+    }
+    setCheckingAvailability(true);
+    fetch(`/api/appointments/availability?date=${form.appointmentDate}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setBookedTimes(data.bookedTimes || []);
+        setFullyBooked(data.fullyBooked || false);
+      })
+      .catch(() => { setBookedTimes([]); setFullyBooked(false); })
+      .finally(() => setCheckingAvailability(false));
+  }, [form.appointmentDate]);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -119,20 +139,45 @@ export default function BookAppointmentPage() {
                         <div className="col-6">
                           <div className="form-group">
                             <label className="form-label"><i className="fas fa-calendar" /> Date *</label>
-                            <input type="date" className="form-control" required min={today} value={form.appointmentDate} onChange={e => setForm({...form, appointmentDate: e.target.value})} />
+                            <input
+                              type="date"
+                              className="form-control"
+                              required
+                              min={today}
+                              value={form.appointmentDate}
+                              onChange={e => setForm({ ...form, appointmentDate: e.target.value, appointmentTime: "" })}
+                            />
                           </div>
                         </div>
                         <div className="col-6">
                           <div className="form-group">
                             <label className="form-label"><i className="fas fa-clock" /> Time *</label>
-                            <select className="form-control" required value={form.appointmentTime} onChange={e => setForm({...form, appointmentTime: e.target.value})}>
-                              <option value="">Select time...</option>
-                              {TIMES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            <select
+                              className="form-control"
+                              required
+                              disabled={!form.appointmentDate || checkingAvailability || fullyBooked}
+                              value={form.appointmentTime}
+                              onChange={e => setForm({ ...form, appointmentTime: e.target.value })}
+                            >
+                              <option value="">
+                                {checkingAvailability ? "Checking availability…" : "Select time…"}
+                              </option>
+                              {TIMES.map(t => (
+                                <option key={t.value} value={t.value} disabled={bookedTimes.includes(t.value)}>
+                                  {t.label}{bookedTimes.includes(t.value) ? " — Booked" : ""}
+                                </option>
+                              ))}
                             </select>
                             <small style={{ color: "var(--light-text)" }}>Business hours: 8:00 AM – 6:00 PM</small>
                           </div>
                         </div>
                       </div>
+
+                      {fullyBooked && (
+                        <div className="alert alert-warning">
+                          <i className="fas fa-exclamation-triangle" /> This date is fully booked. Please choose a different date.
+                        </div>
+                      )}
 
                       <div className="form-group">
                         <label className="form-label"><i className="fas fa-comment" /> Additional Notes (Optional)</label>
