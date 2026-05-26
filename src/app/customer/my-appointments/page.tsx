@@ -90,10 +90,15 @@ export default function MyAppointmentsPage() {
                         : "—"}
                   </td>
                   <td>
-                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                       <button onClick={() => setDetail(a)} className="btn btn-sm btn-secondary">
                         <i className="fas fa-eye" /> View
                       </button>
+                      {a.status === "Completed" && (
+                        <Link href={`/receipt/${a.id}`} className="btn btn-sm btn-primary" target="_blank">
+                          <i className="fas fa-file-invoice" /> Receipt
+                        </Link>
+                      )}
                       {canCancel(a.status) && (
                         <button onClick={() => setCancelConfirm(a)} className="btn btn-sm btn-danger" disabled={cancelling === a.id}>
                           {cancelling === a.id ? <i className="fas fa-spinner fa-spin" /> : <><i className="fas fa-times" /> Cancel</>}
@@ -182,7 +187,12 @@ export default function MyAppointmentsPage() {
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "1rem" }}>
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                {detail.status === "Completed" && (
+                  <Link href={`/receipt/${detail.id}`} className="btn btn-primary" target="_blank">
+                    <i className="fas fa-file-invoice" /> View Receipt
+                  </Link>
+                )}
                 {canCancel(detail.status) && (
                   <button onClick={() => { setDetail(null); setCancelConfirm(detail); }} className="btn btn-danger">
                     <i className="fas fa-times" /> Cancel Appointment

@@ -133,9 +133,16 @@ export default function AdminAppointmentsPage() {
                   <td>{a.mechanic?.name || <em style={{ color: "var(--light-text)" }}>Unassigned</em>}</td>
                   <td>{a.finalCost ? formatCurrency(a.finalCost.toString()) : a.estimatedCost ? formatCurrency(a.estimatedCost.toString()) : "—"}</td>
                   <td>
-                    <button onClick={() => openModal(a)} className="btn btn-sm btn-secondary">
-                      <i className="fas fa-edit" /> Manage
-                    </button>
+                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                      <button onClick={() => openModal(a)} className="btn btn-sm btn-secondary">
+                        <i className="fas fa-edit" /> Manage
+                      </button>
+                      {a.status === "Completed" && (
+                        <a href={`/receipt/${a.id}`} className="btn btn-sm btn-primary" target="_blank" rel="noreferrer">
+                          <i className="fas fa-file-invoice" /> Receipt
+                        </a>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

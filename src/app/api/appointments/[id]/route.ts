@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
       Completed: {
         title: "Service Completed",
-        message: `Your ${serviceName} (appointment #${id}) is complete. Thank you for choosing us!`,
+        message: `Your ${serviceName} (appointment #${id}) is complete. Thank you for choosing us! View your receipt at /receipt/${id}`,
         type: "Success",
       },
       Cancelled: {
