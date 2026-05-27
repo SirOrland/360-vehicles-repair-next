@@ -89,14 +89,6 @@ function LoginForm() {
                   <Link href="/auth/register" style={{ color: "var(--secondary-color)", fontWeight: 600 }}>Sign Up</Link>
                 </p>
               </div>
-
-              <div style={{ marginTop: "1.5rem", padding: "1rem", backgroundColor: "var(--light-bg)", borderRadius: 5 }}>
-                <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--light-text)" }}>
-                  <strong>Demo Credentials:</strong><br />
-                  Admin: admin@360vehicles.com / admin123<br />
-                  Customer: Register a new account
-                </p>
-              </div>
             </div>
           </div>
         </div>
