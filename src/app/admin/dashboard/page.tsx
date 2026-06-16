@@ -4,6 +4,11 @@ import { formatCurrency, formatDate, formatTime, getStatusBadgeClass, formatStat
 import Link from "next/link";
 import type { Metadata } from "next";
 
+function svcNames(appt: { service: { serviceName: string } }) {
+  const svcs = (appt as { additionalServices?: { service: { serviceName: string } }[] }).additionalServices;
+  return svcs?.length ? svcs.map(s => s.service.serviceName).join(", ") : appt.service.serviceName;
+}
+
 export const metadata: Metadata = { title: "Admin Dashboard - 360 Vehicles Repair" };
 
 export default async function AdminDashboardPage() {
@@ -34,6 +39,7 @@ export default async function AdminDashboardPage() {
         customer: { select: { name: true } },
         service: { select: { serviceName: true } },
         vehicle: { select: { brand: true, model: true, plateNo: true } },
+        additionalServices: { include: { service: { select: { serviceName: true } } } },
       },
     }),
   ]);
@@ -128,7 +134,7 @@ export default async function AdminDashboardPage() {
                       <tr key={a.id}>
                         <td>#{a.id}</td>
                         <td>{a.customer.name}</td>
-                        <td>{a.service.serviceName}</td>
+                        <td>{svcNames(a)}</td>
                         <td>
                           {a.vehicle.brand} {a.vehicle.model}<br />
                           <small style={{ color: "var(--light-text)" }}>{a.vehicle.plateNo}</small>

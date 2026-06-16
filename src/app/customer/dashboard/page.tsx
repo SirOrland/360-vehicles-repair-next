@@ -4,6 +4,11 @@ import { formatCurrency, formatDate, formatTime, getStatusBadgeClass, formatStat
 import Link from "next/link";
 import type { Metadata } from "next";
 
+function svcNames(appt: { service: { serviceName: string } }) {
+  const svcs = (appt as { additionalServices?: { service: { serviceName: string } }[] }).additionalServices;
+  return svcs?.length ? svcs.map(s => s.service.serviceName).join(", ") : appt.service.serviceName;
+}
+
 export const metadata: Metadata = { title: "Customer Dashboard - 360 Vehicles Repair" };
 
 export default async function CustomerDashboardPage() {
@@ -16,7 +21,7 @@ export default async function CustomerDashboardPage() {
       where: { userId },
       take: 5,
       orderBy: { createdAt: "desc" },
-      include: { service: { select: { serviceName: true } }, vehicle: { select: { brand: true, model: true, plateNo: true } } },
+      include: { service: { select: { serviceName: true } }, vehicle: { select: { brand: true, model: true, plateNo: true } }, additionalServices: { include: { service: { select: { serviceName: true } } } } },
     }),
     prisma.notification.count({ where: { userId, isRead: false } }),
   ]);
@@ -92,7 +97,7 @@ export default async function CustomerDashboardPage() {
                     {recentAppointments.map(a => (
                       <tr key={a.id}>
                         <td>#{a.id}</td>
-                        <td>{a.service.serviceName}</td>
+                        <td>{svcNames(a)}</td>
                         <td>{a.vehicle.brand} {a.vehicle.model}<br /><small style={{ color: "var(--light-text)" }}>{a.vehicle.plateNo}</small></td>
                         <td>{formatDate(a.appointmentDate)}<br /><small style={{ color: "var(--light-text)" }}>{formatTime(a.appointmentTime)}</small></td>
                         <td><span className={getStatusBadgeClass(a.status)}>{formatStatus(a.status)}</span></td>

@@ -4,6 +4,11 @@ import { formatDate, formatTime, getStatusBadgeClass, formatStatus } from "@/lib
 import Link from "next/link";
 import type { Metadata } from "next";
 
+function svcNames(job: { service: { serviceName: string } }) {
+  const svcs = (job as { additionalServices?: { service: { serviceName: string } }[] }).additionalServices;
+  return svcs?.length ? svcs.map(s => s.service.serviceName).join(", ") : job.service.serviceName;
+}
+
 export const metadata: Metadata = { title: "Mechanic Dashboard - 360 Vehicles Repair" };
 
 export default async function MechanicDashboardPage() {
@@ -15,32 +20,30 @@ export default async function MechanicDashboardPage() {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
 
-  const [assigned, inProgress, completed, todayJobs, activeJobs] = await Promise.all([
+  const [assigned, inProgress, completed] = await Promise.all([
     prisma.appointment.count({ where: { mechanicId, status: "Approved" } }),
     prisma.appointment.count({ where: { mechanicId, status: "InProgress" } }),
     prisma.appointment.count({ where: { mechanicId, status: "Completed" } }),
+  ]);
+
+  const jobInclude = {
+    customer: { select: { name: true, contact: true } },
+    service: { select: { serviceName: true, estimatedDuration: true } },
+    vehicle: { select: { brand: true, model: true, plateNo: true, color: true } },
+    additionalServices: { include: { service: { select: { serviceName: true } } } },
+  } as const;
+
+  const [todayJobs, activeJobs] = await Promise.all([
     prisma.appointment.findMany({
-      where: {
-        mechanicId,
-        status: { notIn: ["Cancelled"] },
-        appointmentDate: { gte: todayStart, lte: todayEnd },
-      },
+      where: { mechanicId, status: { notIn: ["Cancelled"] }, appointmentDate: { gte: todayStart, lte: todayEnd } },
       orderBy: { appointmentTime: "asc" },
-      include: {
-        customer: { select: { name: true, contact: true } },
-        service: { select: { serviceName: true, estimatedDuration: true } },
-        vehicle: { select: { brand: true, model: true, plateNo: true, color: true } },
-      },
+      include: jobInclude,
     }),
     prisma.appointment.findMany({
       where: { mechanicId, status: { in: ["Approved", "InProgress"] } },
       take: 10,
       orderBy: { appointmentDate: "asc" },
-      include: {
-        customer: { select: { name: true, contact: true } },
-        service: { select: { serviceName: true, estimatedDuration: true } },
-        vehicle: { select: { brand: true, model: true, plateNo: true, color: true } },
-      },
+      include: jobInclude,
     }),
   ]);
 
@@ -98,7 +101,7 @@ export default async function MechanicDashboardPage() {
                           {j.customer.name}
                           {j.customer.contact && <><br /><small style={{ color: "var(--light-text)" }}>{j.customer.contact}</small></>}
                         </td>
-                        <td>{j.service.serviceName}<br /><small style={{ color: "var(--light-text)" }}>~{j.service.estimatedDuration} min</small></td>
+                        <td>{svcNames(j)}<br /><small style={{ color: "var(--light-text)" }}>~{j.service.estimatedDuration} min</small></td>
                         <td>{j.vehicle.brand} {j.vehicle.model}<br /><small style={{ color: "var(--light-text)" }}>{j.vehicle.plateNo}</small></td>
                         <td><strong>{formatTime(j.appointmentTime)}</strong></td>
                         <td><span className={getStatusBadgeClass(j.status)}>{formatStatus(j.status)}</span></td>
@@ -130,7 +133,7 @@ export default async function MechanicDashboardPage() {
                       <tr key={j.id}>
                         <td>#{j.id}</td>
                         <td>{j.customer.name}<br /><small style={{ color: "var(--light-text)" }}>{j.customer.contact || ""}</small></td>
-                        <td>{j.service.serviceName}<br /><small style={{ color: "var(--light-text)" }}>~{j.service.estimatedDuration} min</small></td>
+                        <td>{svcNames(j)}<br /><small style={{ color: "var(--light-text)" }}>~{j.service.estimatedDuration} min</small></td>
                         <td>{j.vehicle.brand} {j.vehicle.model}<br /><small style={{ color: "var(--light-text)" }}>{j.vehicle.plateNo} · {j.vehicle.color || ""}</small></td>
                         <td>{formatDate(j.appointmentDate)}<br /><small style={{ color: "var(--light-text)" }}>{formatTime(j.appointmentTime)}</small></td>
                         <td><span className={getStatusBadgeClass(j.status)}>{formatStatus(j.status)}</span></td>

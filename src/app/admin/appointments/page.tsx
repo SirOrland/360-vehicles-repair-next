@@ -16,6 +16,7 @@ type Appointment = {
   service: { serviceName: string; estimatedDuration?: number };
   vehicle: { brand: string; model: string; plateNo: string; year?: number };
   mechanic?: { name: string } | null;
+  additionalServices?: { service: { serviceName: string } }[];
 };
 
 type User = { id: number; name: string; role: string };
@@ -128,7 +129,11 @@ export default function AdminAppointmentsPage() {
                 <tr key={a.id}>
                   <td>#{a.id}</td>
                   <td>{a.customer.name}<br /><small style={{ color: "var(--light-text)" }}>{a.customer.email}</small></td>
-                  <td>{a.service.serviceName}</td>
+                  <td>
+                    {(a.additionalServices && a.additionalServices.length > 0)
+                      ? a.additionalServices.map(as => as.service.serviceName).join(", ")
+                      : a.service.serviceName}
+                  </td>
                   <td>{a.vehicle.brand} {a.vehicle.model}<br /><small style={{ color: "var(--light-text)" }}>{a.vehicle.plateNo}</small></td>
                   <td>{formatDate(a.appointmentDate)}<br /><small style={{ color: "var(--light-text)" }}>{formatTime(a.appointmentTime)}</small></td>
                   <td><span className={getStatusBadgeClass(a.status)}>{formatStatus(a.status)}</span></td>
@@ -165,7 +170,11 @@ export default function AdminAppointmentsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "1.5rem", padding: "1rem", background: "var(--light-bg)", borderRadius: 5 }}>
                 <div><strong>Customer:</strong> {selected.customer.name}</div>
                 <div><strong>Contact:</strong> {selected.customer.contact || "—"}</div>
-                <div><strong>Service:</strong> {selected.service.serviceName}</div>
+                <div><strong>Service{selected.additionalServices && selected.additionalServices.length > 1 ? "s" : ""}:</strong>{" "}
+                  {(selected.additionalServices && selected.additionalServices.length > 0)
+                    ? selected.additionalServices.map(as => as.service.serviceName).join(", ")
+                    : selected.service.serviceName}
+                </div>
                 <div><strong>Vehicle:</strong> {selected.vehicle.brand} {selected.vehicle.model} ({selected.vehicle.plateNo})</div>
               </div>
 

@@ -9,6 +9,7 @@ type Job = {
   customer: { name: string; contact?: string };
   service: { serviceName: string; estimatedDuration?: number };
   vehicle: { brand: string; model: string; plateNo: string; color?: string; year?: number };
+  additionalServices?: { service: { serviceName: string } }[];
 };
 
 type PartUsage = {
@@ -163,7 +164,12 @@ export default function MechanicJobsPage() {
                     {j.customer.name}
                     {j.customer.contact && <><br /><small style={{ color: "var(--light-text)" }}><i className="fas fa-phone" /> {j.customer.contact}</small></>}
                   </td>
-                  <td>{j.service.serviceName}<br /><small style={{ color: "var(--light-text)" }}>~{j.service.estimatedDuration} min</small></td>
+                  <td>
+                    {(j.additionalServices && j.additionalServices.length > 0)
+                      ? j.additionalServices.map(as => as.service.serviceName).join(", ")
+                      : j.service.serviceName}
+                    <br /><small style={{ color: "var(--light-text)" }}>~{j.service.estimatedDuration} min</small>
+                  </td>
                   <td>{j.vehicle.brand} {j.vehicle.model}<br /><small style={{ color: "var(--light-text)" }}>{j.vehicle.plateNo}</small></td>
                   <td>
                     {isToday(j.appointmentDate) && (
@@ -207,7 +213,9 @@ export default function MechanicJobsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", background: "var(--light-bg)", padding: "1rem", borderRadius: 5, marginBottom: "1rem" }}>
                 <div><strong>Customer:</strong> {selected.customer.name}</div>
                 <div><strong>Phone:</strong> {selected.customer.contact || "—"}</div>
-                <div><strong>Service:</strong> {selected.service.serviceName}</div>
+                <div><strong>Service:</strong> {(selected.additionalServices && selected.additionalServices.length > 0)
+                  ? selected.additionalServices.map(as => as.service.serviceName).join(", ")
+                  : selected.service.serviceName}</div>
                 <div><strong>Duration:</strong> ~{selected.service.estimatedDuration} min</div>
                 <div><strong>Vehicle:</strong> {selected.vehicle.brand} {selected.vehicle.model}</div>
                 <div><strong>Plate:</strong> {selected.vehicle.plateNo}</div>
@@ -303,7 +311,7 @@ export default function MechanicJobsPage() {
               <div style={{ background: "var(--light-bg)", padding: "1rem", borderRadius: 5, marginBottom: "1.5rem" }}>
                 <h4 style={{ margin: "0 0 0.5rem" }}><i className="fas fa-receipt" /> Cost Summary</h4>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                  <span>Service ({selected.service.serviceName})</span>
+                  <span>Service{selected.additionalServices && selected.additionalServices.length > 1 ? "s" : ""} ({(selected.additionalServices && selected.additionalServices.length > 0) ? selected.additionalServices.map(as => as.service.serviceName).join(", ") : selected.service.serviceName})</span>
                   <span>{formatCurrency((selected.estimatedCost ?? 0).toString())}</span>
                 </div>
                 {parts.length > 0 && (

@@ -12,6 +12,7 @@ type Appointment = {
   service: { serviceName: string; estimatedDuration?: number; description?: string | null };
   vehicle: { brand: string; model: string; plateNo: string; year?: number | null; color?: string | null };
   mechanic?: { name: string; contact?: string | null } | null;
+  additionalServices?: { service: { serviceName: string } }[];
 };
 
 export default function MyAppointmentsPage() {
@@ -77,7 +78,11 @@ export default function MyAppointmentsPage() {
               {appointments.map(a => (
                 <tr key={a.id}>
                   <td>#{a.id}</td>
-                  <td>{a.service.serviceName}</td>
+                  <td>
+                    {(a.additionalServices && a.additionalServices.length > 0)
+                      ? a.additionalServices.map(as => as.service.serviceName).join(", ")
+                      : a.service.serviceName}
+                  </td>
                   <td>{a.vehicle.brand} {a.vehicle.model}<br /><small style={{ color: "var(--light-text)" }}>{a.vehicle.plateNo}</small></td>
                   <td>{formatDate(a.appointmentDate)}<br /><small style={{ color: "var(--light-text)" }}>{formatTime(a.appointmentTime)}</small></td>
                   <td>{a.mechanic?.name || <em style={{ color: "var(--light-text)" }}>Not assigned</em>}</td>
@@ -131,9 +136,12 @@ export default function MyAppointmentsPage() {
 
               {/* Service */}
               <div style={{ padding: "1rem", background: "var(--light-bg)", borderRadius: 5, marginBottom: "1rem" }}>
-                <h4 style={{ margin: "0 0 0.5rem", color: "var(--primary-color)" }}><i className="fas fa-tools" /> Service</h4>
-                <p style={{ margin: "0 0 0.25rem" }}><strong>{detail.service.serviceName}</strong></p>
-                {detail.service.description && <p style={{ margin: "0 0 0.25rem", color: "var(--light-text)", fontSize: "0.875rem" }}>{detail.service.description}</p>}
+                <h4 style={{ margin: "0 0 0.5rem", color: "var(--primary-color)" }}><i className="fas fa-tools" /> Services</h4>
+                {(detail.additionalServices && detail.additionalServices.length > 0)
+                  ? detail.additionalServices.map((as, i) => (
+                      <p key={i} style={{ margin: "0 0 0.2rem" }}><strong>{as.service.serviceName}</strong></p>
+                    ))
+                  : <p style={{ margin: "0 0 0.25rem" }}><strong>{detail.service.serviceName}</strong></p>}
                 {detail.service.estimatedDuration && <p style={{ margin: 0, color: "var(--light-text)", fontSize: "0.875rem" }}><i className="fas fa-clock" /> ~{detail.service.estimatedDuration} minutes</p>}
               </div>
 
@@ -213,7 +221,11 @@ export default function MyAppointmentsPage() {
               <h3 className="card-title"><i className="fas fa-exclamation-triangle" style={{ color: "var(--danger-color)" }} /> Cancel Appointment</h3>
             </div>
             <div className="card-body">
-              <p>Are you sure you want to cancel your <strong>{cancelConfirm.service.serviceName}</strong> appointment on <strong>{formatDate(cancelConfirm.appointmentDate)}</strong>?</p>
+              <p>Are you sure you want to cancel your <strong>
+                {(cancelConfirm.additionalServices && cancelConfirm.additionalServices.length > 0)
+                  ? cancelConfirm.additionalServices.map(as => as.service.serviceName).join(", ")
+                  : cancelConfirm.service.serviceName}
+              </strong> appointment on <strong>{formatDate(cancelConfirm.appointmentDate)}</strong>?</p>
               <p style={{ color: "var(--light-text)", fontSize: "0.875rem" }}>This action cannot be undone.</p>
               <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
                 <button onClick={() => cancelAppointment(cancelConfirm)} className="btn btn-danger" disabled={cancelling === cancelConfirm.id}>

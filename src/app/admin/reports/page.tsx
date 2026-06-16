@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Metadata } from "next";
 
+function svcNames(appt: { service: { serviceName: string } }) {
+  const svcs = (appt as { additionalServices?: { service: { serviceName: string } }[] }).additionalServices;
+  return svcs?.length ? svcs.map(s => s.service.serviceName).join(", ") : appt.service.serviceName;
+}
+
 export const metadata: Metadata = { title: "Reports - Admin" };
 
 export default async function AdminReportsPage() {
@@ -23,7 +28,7 @@ export default async function AdminReportsPage() {
     }),
     prisma.appointment.findMany({
       where: { status: "Completed", appointmentDate: { gte: startOfMonth } },
-      include: { customer: { select: { name: true } }, service: { select: { serviceName: true } }, vehicle: { select: { brand: true, model: true } } },
+      include: { customer: { select: { name: true } }, service: { select: { serviceName: true } }, vehicle: { select: { brand: true, model: true } }, additionalServices: { include: { service: { select: { serviceName: true } } } } },
       orderBy: { updatedAt: "desc" },
       take: 20,
     }),
@@ -110,7 +115,7 @@ export default async function AdminReportsPage() {
                   <tr key={a.id}>
                     <td>#{a.id}</td>
                     <td>{a.customer.name}</td>
-                    <td>{a.service.serviceName}</td>
+                    <td>{svcNames(a)}</td>
                     <td>{a.vehicle.brand} {a.vehicle.model}</td>
                     <td>{formatDate(a.appointmentDate)}</td>
                     <td>{a.finalCost ? formatCurrency(a.finalCost.toString()) : "—"}</td>

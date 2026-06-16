@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
       vehicle: true,
       service: true,
       mechanic: { select: { name: true } },
+      additionalServices: { include: { service: { select: { serviceName: true } } } },
     },
     orderBy: { createdAt: "desc" },
     take: limit,
