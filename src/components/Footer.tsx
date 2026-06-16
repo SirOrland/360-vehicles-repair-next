@@ -61,20 +61,6 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Google Maps */}
-        <div style={{ margin: "1.5rem 0", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <iframe
-            src="https://maps.google.com/maps?q=24.369264,54.4958458&z=16&output=embed"
-            width="100%"
-            height="220"
-            style={{ border: 0, display: "block" }}
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            title="360 Vehicles Repair Location"
-          />
-        </div>
-
         <div className="footer-bottom">
           <p>&copy; {new Date().getFullYear()} 360 Vehicles Mechanic Repair LLC. All rights reserved.</p>
           <div className="footer-links">
