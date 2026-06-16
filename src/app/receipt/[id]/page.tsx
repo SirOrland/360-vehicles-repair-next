@@ -2,22 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { formatDate, formatTime, formatCurrency } from "@/lib/utils";
+import { getShopSettings } from "@/lib/settings";
 import ReceiptActions from "./ReceiptActions";
-
-async function getSettings() {
-  const rows = await prisma.systemSetting.findMany({
-    where: { settingKey: { in: ["vat_rate", "trn_number", "shop_address", "shop_email", "shop_name"] } },
-  });
-  const map: Record<string, string> = {
-    vat_rate: "5",
-    trn_number: "104902025600001",
-    shop_address: "Al Sawari 9 St - Musaffah - M13 - Abu Dhabi - United Arab Emirates",
-    shop_email: "technicalservices.360serv@outlook.com",
-    shop_name: "360 Vehicles Repair",
-  };
-  for (const r of rows) if (r.settingValue) map[r.settingKey] = r.settingValue;
-  return map;
-}
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,7 +26,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         additionalServices: { include: { service: true } },
       },
     }),
-    getSettings(),
+    getShopSettings(),
   ]);
 
   if (!appt) notFound();
@@ -50,7 +36,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   }
   if (session.user.role === "Mechanic") redirect("/mechanic/dashboard");
 
-  const partsCost = appt.partsUsage.reduce((s, p) => s + Number(p.totalPrice), 0);
+  const partsCost = appt.partsUsage.reduce((s: number, p: { totalPrice: unknown }) => s + Number(p.totalPrice), 0);
   const serviceCost = Number(appt.estimatedCost ?? 0);
   const baseTotal = Number(appt.finalCost ?? serviceCost + partsCost);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,7 +158,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
                 <tr><th>Part</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
               </thead>
               <tbody>
-                {appt.partsUsage.map(p => (
+                {appt.partsUsage.map((p: { id: number; part: { partName: string; partNumber?: string | null }; quantityUsed: number; unitPrice: unknown; totalPrice: unknown }) => (
                   <tr key={p.id}>
                     <td>{p.part.partName}{p.part.partNumber && <><br /><small style={{ color: "#888" }}>#{p.part.partNumber}</small></>}</td>
                     <td>{p.quantityUsed}</td>

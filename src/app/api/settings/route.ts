@@ -11,7 +11,31 @@ const DEFAULTS: Record<string, string> = {
   trn_number: "104902025600001",
 };
 
+// Old seed placeholders that should be replaced with the real values
+const STALE: Record<string, string> = {
+  shop_email: "info@360vehicles.com",
+  shop_address: "123 Main Street, City, State 12345",
+  shop_phone: "(555) 123-4567",
+};
+
 export async function GET() {
+  // Replace stale seed placeholders with the real values (one-time migration)
+  for (const [key, staleValue] of Object.entries(STALE)) {
+    await prisma.systemSetting.updateMany({
+      where: { settingKey: key, settingValue: staleValue },
+      data: { settingValue: DEFAULTS[key] },
+    });
+  }
+
+  // Seed any missing keys
+  for (const [key, value] of Object.entries(DEFAULTS)) {
+    await prisma.systemSetting.upsert({
+      where: { settingKey: key },
+      update: {},
+      create: { settingKey: key, settingValue: value },
+    });
+  }
+
   const rows = await prisma.systemSetting.findMany();
   const map: Record<string, string> = { ...DEFAULTS };
   for (const r of rows) {

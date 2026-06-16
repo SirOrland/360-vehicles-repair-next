@@ -41,9 +41,9 @@ async function main() {
 
   const settings = [
     { settingKey: "shop_name", settingValue: "360 Vehicles Mechanic Repair LLC", description: "Shop name" },
-    { settingKey: "shop_email", settingValue: "info@360vehicles.com", description: "Shop contact email" },
-    { settingKey: "shop_phone", settingValue: "(555) 123-4567", description: "Shop contact phone" },
-    { settingKey: "shop_address", settingValue: "123 Main Street, City, State 12345", description: "Shop physical address" },
+    { settingKey: "shop_email", settingValue: "technicalservices.360serv@outlook.com", description: "Shop contact email" },
+    { settingKey: "shop_phone", settingValue: "", description: "Shop contact phone" },
+    { settingKey: "shop_address", settingValue: "Al Sawari 9 St - Musaffah - M13 - Abu Dhabi - United Arab Emirates", description: "Shop physical address" },
     { settingKey: "business_hours", settingValue: "Mon-Fri: 8AM-6PM, Sat: 9AM-4PM, Sun: Closed", description: "Business operating hours" },
     { settingKey: "low_stock_threshold", settingValue: "10", description: "Alert threshold for low stock" },
     { settingKey: "appointment_buffer", settingValue: "30", description: "Minutes between appointments" },
