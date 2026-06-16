@@ -36,7 +36,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   }
   if (session.user.role === "Mechanic") redirect("/mechanic/dashboard");
 
-  const partsCost = appt.partsUsage.reduce((s: number, p: { totalPrice: unknown }) => s + Number(p.totalPrice), 0);
+  const partsCost = appt.partsUsage.reduce((s, p) => s + Number(p.totalPrice), 0);
   const serviceCost = Number(appt.estimatedCost ?? 0);
   const baseTotal = Number(appt.finalCost ?? serviceCost + partsCost);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,12 +158,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
                 <tr><th>Part</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
               </thead>
               <tbody>
-                {appt.partsUsage.map((p: { id: number; part: { partName: string; partNumber?: string | null }; quantityUsed: number; unitPrice: unknown; totalPrice: unknown }) => (
+                {appt.partsUsage.map((p) => (
                   <tr key={p.id}>
                     <td>{p.part.partName}{p.part.partNumber && <><br /><small style={{ color: "#888" }}>#{p.part.partNumber}</small></>}</td>
                     <td>{p.quantityUsed}</td>
-                    <td>{formatCurrency(p.unitPrice.toString())}</td>
-                    <td>{formatCurrency(p.totalPrice.toString())}</td>
+                    <td>{formatCurrency(String(p.unitPrice))}</td>
+                    <td>{formatCurrency(String(p.totalPrice))}</td>
                   </tr>
                 ))}
               </tbody>
