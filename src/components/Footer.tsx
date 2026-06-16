@@ -47,22 +47,32 @@ export default function Footer() {
             <ul className="contact-info">
               <li>
                 <i className="fas fa-map-marker-alt" />
-                <span>123 Main Street, City, State 12345</span>
-              </li>
-              <li>
-                <i className="fas fa-phone" />
-                <span>(555) 123-4567</span>
+                <span>Al Sawari 9 St - Musaffah - M13 - Abu Dhabi - United Arab Emirates</span>
               </li>
               <li>
                 <i className="fas fa-envelope" />
-                <span>info@360vehicles.com</span>
+                <span>technicalservices.360serv@outlook.com</span>
               </li>
               <li>
                 <i className="fas fa-clock" />
-                <span>Mon–Fri: 8AM–6PM</span>
+                <span>Open Daily — 8:00 AM – 5:00 PM</span>
               </li>
             </ul>
           </div>
+        </div>
+
+        {/* Google Maps */}
+        <div style={{ margin: "1.5rem 0", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <iframe
+            src="https://maps.google.com/maps?q=24.369264,54.4958458&z=16&output=embed"
+            width="100%"
+            height="220"
+            style={{ border: 0, display: "block" }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="360 Vehicles Repair Location"
+          />
         </div>
 
         <div className="footer-bottom">

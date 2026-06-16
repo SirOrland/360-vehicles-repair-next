@@ -104,6 +104,7 @@ export default function Header({ session }: Props) {
                       <li><Link href="/admin/services" className={isActive("/admin/services")}>Services</Link></li>
                       <li><Link href="/admin/inventory" className={isActive("/admin/inventory")}>Inventory</Link></li>
                       <li><Link href="/admin/reports" className={isActive("/admin/reports")}>Reports</Link></li>
+                      <li><Link href="/admin/settings" className={isActive("/admin/settings")}>Settings</Link></li>
                     </>
                   )}
 

@@ -30,7 +30,7 @@ export default function AdminAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updateData, setUpdateData] = useState({
-    status: "", mechanicId: "", notes: "", finalCost: "",
+    status: "", mechanicId: "", notes: "", finalCost: "", discount: "",
     appointmentDate: "", appointmentTime: "",
   });
 
@@ -58,6 +58,7 @@ export default function AdminAppointmentsPage() {
       mechanicId: a.mechanic ? "" : "",
       notes: a.notes || "",
       finalCost: a.finalCost ? String(a.finalCost) : "",
+      discount: (a as { discount?: number | null }).discount ? String((a as { discount?: number | null }).discount) : "",
       appointmentDate: dateStr,
       appointmentTime: a.appointmentTime,
     });
@@ -79,6 +80,7 @@ export default function AdminAppointmentsPage() {
         mechanicId: updateData.mechanicId || null,
         notes: updateData.notes,
         finalCost: updateData.finalCost ? parseFloat(updateData.finalCost) : null,
+        discount: updateData.discount ? parseFloat(updateData.discount) : null,
         ...(dateChanged && { appointmentDate: updateData.appointmentDate }),
         ...(timeChanged && { appointmentTime: updateData.appointmentTime }),
       }),
@@ -209,10 +211,21 @@ export default function AdminAppointmentsPage() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Final Cost (AED)</label>
-                <input type="number" step="0.01" className="form-control" value={updateData.finalCost}
-                  onChange={e => setUpdateData({ ...updateData, finalCost: e.target.value })} placeholder="e.g. 149.99" />
+              <div className="row">
+                <div className="col-6">
+                  <div className="form-group">
+                    <label className="form-label">Final Cost (AED)</label>
+                    <input type="number" step="0.01" className="form-control" value={updateData.finalCost}
+                      onChange={e => setUpdateData({ ...updateData, finalCost: e.target.value })} placeholder="e.g. 149.99" />
+                  </div>
+                </div>
+                <div className="col-6">
+                  <div className="form-group">
+                    <label className="form-label">Discount (AED)</label>
+                    <input type="number" step="0.01" min="0" className="form-control" value={updateData.discount}
+                      onChange={e => setUpdateData({ ...updateData, discount: e.target.value })} placeholder="e.g. 20.00" />
+                  </div>
+                </div>
               </div>
 
               <div className="form-group">

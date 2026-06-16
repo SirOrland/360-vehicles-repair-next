@@ -4,30 +4,47 @@ import { redirect, notFound } from "next/navigation";
 import { formatDate, formatTime, formatCurrency } from "@/lib/utils";
 import ReceiptActions from "./ReceiptActions";
 
+async function getSettings() {
+  const rows = await prisma.systemSetting.findMany({
+    where: { settingKey: { in: ["vat_rate", "trn_number", "shop_address", "shop_email", "shop_name"] } },
+  });
+  const map: Record<string, string> = {
+    vat_rate: "5",
+    trn_number: "104902025600001",
+    shop_address: "Al Sawari 9 St - Musaffah - M13 - Abu Dhabi - United Arab Emirates",
+    shop_email: "technicalservices.360serv@outlook.com",
+    shop_name: "360 Vehicles Repair",
+  };
+  for (const r of rows) if (r.settingValue) map[r.settingKey] = r.settingValue;
+  return map;
+}
+
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session) redirect("/auth/login");
 
   const apptId = parseInt(id);
-  const appt = await prisma.appointment.findUnique({
-    where: { id: apptId },
-    include: {
-      customer: { select: { name: true, email: true, contact: true } },
-      vehicle: true,
-      service: true,
-      mechanic: { select: { name: true } },
-      partsUsage: {
-        include: { part: { select: { partName: true, partNumber: true } } },
-        orderBy: { createdAt: "asc" },
+  const [appt, settings] = await Promise.all([
+    prisma.appointment.findUnique({
+      where: { id: apptId },
+      include: {
+        customer: { select: { name: true, email: true, contact: true } },
+        vehicle: true,
+        service: true,
+        mechanic: { select: { name: true } },
+        partsUsage: {
+          include: { part: { select: { partName: true, partNumber: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        additionalServices: { include: { service: true } },
       },
-      additionalServices: { include: { service: true } },
-    },
-  });
+    }),
+    getSettings(),
+  ]);
 
   if (!appt) notFound();
 
-  // Authorization: customer can only see their own, admin sees all
   if (session.user.role === "Customer" && appt.userId !== parseInt(session.user.id)) {
     redirect("/customer/dashboard");
   }
@@ -35,17 +52,25 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   const partsCost = appt.partsUsage.reduce((s, p) => s + Number(p.totalPrice), 0);
   const serviceCost = Number(appt.estimatedCost ?? 0);
-  const total = Number(appt.finalCost ?? serviceCost + partsCost);
+  const baseTotal = Number(appt.finalCost ?? serviceCost + partsCost);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const discountAmt = Number((appt as any).discount ?? 0);
+  const vatRate = parseFloat(settings.vat_rate) || 0;
+  const subtotalAfterDiscount = Math.max(0, baseTotal - discountAmt);
+  const vatAmt = subtotalAfterDiscount * vatRate / 100;
+  const grandTotal = subtotalAfterDiscount + vatAmt;
+
   const receiptNo = `INV-${String(apptId).padStart(5, "0")}`;
   const issuedDate = formatDate(new Date());
 
-  // Collect all services (primary + additional)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const additionalServices: any[] = (appt as any).additionalServices ?? [];
   const allServices = [
     appt.service,
-    ...additionalServices.filter(as => as.serviceId !== appt.serviceId).map(as => as.service),
+    ...additionalServices.filter((as: { serviceId: number }) => as.serviceId !== appt.serviceId).map((as: { service: unknown }) => as.service),
   ];
+
+  const hasExtra = appt.partsUsage.length > 0;
 
   return (
     <>
@@ -65,7 +90,6 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       `}</style>
 
       <div style={{ background: "#f5f5f5", minHeight: "100vh", padding: "1rem" }}>
-        {/* Back link — hidden when printing */}
         <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 1rem" }}>
           <a href={session.user.role === "Admin" ? "/admin/appointments" : "/customer/my-appointments"}
             style={{ color: "var(--primary-color)", textDecoration: "none", fontSize: "0.9rem" }}>
@@ -77,9 +101,14 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           {/* Shop Header */}
           <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
             <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1a1a2e", letterSpacing: 1 }}>
-              <i className="fas fa-car-side" style={{ color: "var(--primary-color, #e63946)" }} /> 360 Vehicles Repair
+              <i className="fas fa-car-side" style={{ color: "var(--primary-color, #e63946)" }} /> {settings.shop_name}
             </div>
             <div style={{ color: "#666", fontSize: "0.85rem", marginTop: "0.25rem" }}>Your Trusted Auto Service Center</div>
+            <div style={{ color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>{settings.shop_address}</div>
+            <div style={{ color: "#888", fontSize: "0.78rem" }}>{settings.shop_email}</div>
+            {settings.trn_number && (
+              <div style={{ color: "#888", fontSize: "0.78rem" }}>TRN: {settings.trn_number}</div>
+            )}
           </div>
 
           <hr className="receipt-divider" />
@@ -87,7 +116,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           {/* Receipt Meta */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
             <div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Service Receipt</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Tax Invoice</div>
               <div style={{ color: "#666", fontSize: "0.85rem", marginTop: "0.2rem" }}>Receipt No: <strong>{receiptNo}</strong></div>
               <div style={{ color: "#666", fontSize: "0.85rem" }}>Date Issued: <strong>{issuedDate}</strong></div>
               <div style={{ color: "#666", fontSize: "0.85rem" }}>Service Date: <strong>{formatDate(appt.appointmentDate)}</strong> at <strong>{formatTime(appt.appointmentTime)}</strong></div>
@@ -127,10 +156,10 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </thead>
             <tbody>
               {allServices.map((svc, i) => (
-                <tr key={i}>
-                  <td>{svc.serviceName}{svc.description ? <><br /><small style={{ color: "#888" }}>{svc.description}</small></> : null}</td>
-                  <td>{svc.estimatedDuration ? `~${svc.estimatedDuration} min` : "—"}</td>
-                  <td>{svc.basePrice ? formatCurrency(svc.basePrice.toString()) : "—"}</td>
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                <tr key={i}><td>{(svc as any).serviceName}{(svc as any).description ? <><br /><small style={{ color: "#888" }}>{(svc as any).description}</small></> : null}</td>
+                  <td>{(svc as any).estimatedDuration ? `~${(svc as any).estimatedDuration} min` : "—"}</td>
+                  <td>{(svc as any).basePrice ? formatCurrency((svc as any).basePrice.toString()) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -145,10 +174,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
               <tbody>
                 {appt.partsUsage.map(p => (
                   <tr key={p.id}>
-                    <td>
-                      {p.part.partName}
-                      {p.part.partNumber && <><br /><small style={{ color: "#888" }}>#{p.part.partNumber}</small></>}
-                    </td>
+                    <td>{p.part.partName}{p.part.partNumber && <><br /><small style={{ color: "#888" }}>#{p.part.partNumber}</small></>}</td>
                     <td>{p.quantityUsed}</td>
                     <td>{formatCurrency(p.unitPrice.toString())}</td>
                     <td>{formatCurrency(p.totalPrice.toString())}</td>
@@ -162,22 +188,34 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <table className="receipt-table">
             <tbody>
               <tr>
-                <td style={{ color: "#555" }}>Service Subtotal</td>
-                <td></td>
-                {appt.partsUsage.length > 0 && <td></td>}
+                <td colSpan={hasExtra ? 3 : 1} style={{ color: "#555" }}>Service Subtotal</td>
                 <td style={{ textAlign: "right" }}>{formatCurrency(serviceCost.toString())}</td>
               </tr>
               {partsCost > 0 && (
                 <tr>
-                  <td style={{ color: "#555" }}>Parts Subtotal</td>
-                  <td></td>
-                  <td></td>
+                  <td colSpan={3} style={{ color: "#555" }}>Parts Subtotal</td>
                   <td style={{ textAlign: "right" }}>{formatCurrency(partsCost.toString())}</td>
                 </tr>
               )}
+              {discountAmt > 0 && (
+                <tr>
+                  <td colSpan={hasExtra ? 3 : 1} style={{ color: "#28a745" }}>
+                    <i className="fas fa-tag" style={{ marginRight: 4 }} />Discount
+                  </td>
+                  <td style={{ textAlign: "right", color: "#28a745" }}>- {formatCurrency(discountAmt.toString())}</td>
+                </tr>
+              )}
+              {vatRate > 0 && (
+                <tr>
+                  <td colSpan={hasExtra ? 3 : 1} style={{ color: "#555" }}>
+                    VAT ({vatRate}%)
+                  </td>
+                  <td style={{ textAlign: "right" }}>{formatCurrency(vatAmt.toFixed(2))}</td>
+                </tr>
+              )}
               <tr className="total-row">
-                <td colSpan={appt.partsUsage.length > 0 ? 3 : 1}>TOTAL DUE</td>
-                <td style={{ textAlign: "right", color: "var(--primary-color, #e63946)", fontSize: "1.1rem" }}>{formatCurrency(total.toString())}</td>
+                <td colSpan={hasExtra ? 3 : 1}>TOTAL DUE</td>
+                <td style={{ textAlign: "right", color: "var(--primary-color, #e63946)", fontSize: "1.1rem" }}>{formatCurrency(grandTotal.toFixed(2))}</td>
               </tr>
             </tbody>
           </table>
@@ -192,13 +230,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </div>
             <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#888" }}>
               <div>Thank you for choosing us!</div>
-              <div style={{ marginTop: "0.2rem" }}>info@360vehicles.com</div>
+              <div style={{ marginTop: "0.2rem" }}>{settings.shop_email}</div>
             </div>
           </div>
 
         </div>
 
-        {/* Print / Download buttons — outside receipt-content so they don't appear in the PDF */}
         <ReceiptActions receiptNo={receiptNo} />
       </div>
     </>

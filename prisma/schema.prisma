@@ -84,6 +84,7 @@ model Appointment {
   customerNotes   String?  @map("customer_notes")
   estimatedCost   Decimal? @map("estimated_cost")
   finalCost       Decimal? @map("final_cost")
+  discount        Decimal? @map("discount")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { status, mechanicId, notes, finalCost, appointmentDate, appointmentTime } = body;
+  const { status, mechanicId, notes, finalCost, discount, appointmentDate, appointmentTime } = body;
 
   const currentAppt = await prisma.appointment.findUnique({
     where: { id: apptId },
@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(mechanicId !== undefined && { mechanicId: mechanicId ? parseInt(mechanicId) : null }),
       ...(notes !== undefined && { notes }),
       ...(finalCost !== undefined && { finalCost }),
+      ...(discount !== undefined && { discount }),
       ...(appointmentDate && { appointmentDate: new Date(appointmentDate) }),
       ...(appointmentTime && { appointmentTime }),
     },
